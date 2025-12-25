@@ -1,17 +1,30 @@
 // Test ID: IIDSAT
 import OrderItem from "./OrderItem";
 
-import { useLoaderData } from "react-router-dom";
+import { useFetcher, useLoaderData } from "react-router-dom";
 import { getOrder } from "../../services/apiRestaurant";
 import {
   calcMinutesLeft,
   formatCurrency,
   formatDate,
 } from "../../utils/helpers";
+import { useEffect } from "react";
+import PriorityOrder from "./PriorityOrder";
 
 function Order() {
   // Get the loaded order data
   const order = useLoaderData();
+
+  // Fetcher to load menu data in the background (for OrderItem components)
+  const fetcher = useFetcher();
+  useEffect(
+    function () {
+      // Load menu data if not already loaded
+      if (!fetcher.data && fetcher.state === "idle") fetcher.load("/menu");
+    },
+    [fetcher],
+  );
+
   // Everyone can search for all orders, so for privacy reasons we're gonna gonna exclude names or address, these are only for the restaurant staff
   const {
     id,
@@ -54,7 +67,17 @@ function Order() {
 
       <ul className="divide-y divide-stone-300 border-b border-t border-stone-300">
         {cart.map((item) => (
-          <OrderItem key={item.pizzaId} item={item} />
+          <OrderItem
+            key={item.pizzaId}
+            item={item}
+            // Show loading state while fetcher is loading menu data
+            isLoadingIngredients={fetcher.state === "loading"}
+            ingredients={
+              // If fetcher.data is not yet loaded, we provide an empty array to avoid errors
+              fetcher.data?.find((el) => el.id === item.pizzaId).ingredients ??
+              []
+            }
+          />
         ))}
       </ul>
 
@@ -71,6 +94,7 @@ function Order() {
           To pay on delivery: {formatCurrency(orderPrice + priorityPrice)}
         </p>
       </div>
+      {!priority && <PriorityOrder order={order} />}
     </div>
   );
 }
